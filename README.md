@@ -1,5 +1,7 @@
 # Mission Git
 
+**Français** · [English](README.en.md)
+
 Mini-jeu d'atelier pour apprendre les pull requests, les checks GitHub Actions et la résolution de conflits Git.
 
 ## Le scénario
@@ -192,6 +194,7 @@ Le fichier `missions.json` livré **échoue volontairement** : il contient encor
 ```
 mission-git/
 ├── README.md
+├── README.en.md
 ├── missions.json
 ├── check_missions.py
 └── .github/
