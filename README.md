@@ -2,7 +2,7 @@
 
 **Français** · [English](README.en.md)
 
-Mini-jeu d'atelier de 30 minutes pour apprendre les pull requests, les checks GitHub Actions et la résolution de conflits Git.
+Mini-jeu d'atelier pour apprendre les pull requests, les checks GitHub Actions et la résolution de conflits Git.
 
 ## Le scénario
 
