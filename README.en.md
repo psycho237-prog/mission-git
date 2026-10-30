@@ -1,8 +1,7 @@
 # Mission Git
 
 [Français](README.md) · **English**
-
-A 30-minute workshop game for learning pull requests, GitHub Actions checks and Git conflict resolution.
+À workshop game for learning pull requests, GitHub Actions checks and Git conflict resolution.
 
 ## The scenario
 
