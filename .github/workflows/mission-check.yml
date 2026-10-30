@@ -14,5 +14,7 @@ jobs:
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
-      - name: Valider missions.json
-        run: python3 check_missions.py
+      - name: Valider missions.json et la carte de défi
+        env:
+          AUTEUR: ${{ github.event.pull_request.user.login }}
+        run: python3 check_missions.py --auteur "$AUTEUR"

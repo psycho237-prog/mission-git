@@ -6,9 +6,70 @@ A 30-minute workshop game for learning pull requests, GitHub Actions checks and 
 
 ## The scenario
 
-A rescue team must leave on a mission, but its mission board is incomplete. Your team has to **add a mission** to `missions.json` before departure is allowed.
+A rescue team must leave on a mission, but its mission board is incomplete. Each participant receives a **challenge card**: one precise mission to add to `missions.json`. Every card contains **one voluntary defect** that must be found and fixed before the robot (GitHub Actions) accepts the pull request (PR).
 
-Each participant works on their own branch and opens their own pull request (PR). A robot (GitHub Actions) checks the file automatically on every PR. When several people edit the same part of the file, Git raises a **conflict** — that is the heart of the game.
+Because everyone replaces the same `TODO` block, Git eventually raises a **conflict** — that is the heart of the game.
+
+## Participant journey
+
+1. **Fork** the repository to your GitHub account (the *Fork* button).
+2. **Create a branch** from the initial state of `main` in your fork:
+
+   ```bash
+   git clone https://github.com/<your-login>/mission-git.git
+   cd mission-git
+   git switch -c mission/<your-first-name>
+   ```
+
+3. **Discover your card** by opening a PR (even with no change) or, faster, locally:
+
+   ```bash
+   python3 check_missions.py --auteur <your-login>
+   ```
+
+   The output shows your login, your card, the mission to add (with its defect) and a hint.
+
+4. **Replace the `TODO` block** with your card's mission, exactly as displayed.
+
+5. **Open your PR** against `main` and **read the workflow result** in the *Checks* tab: it will be red, and that is expected.
+
+6. **Merge `main` into your branch** as soon as GitHub reports a conflict (another participant merged first) and **resolve it**, keeping the other missions.
+
+7. **Fix your card's defect** using the hints, then push:
+
+   ```bash
+   git add missions.json
+   git commit -m "Corrige la mission de ma carte"
+   git push
+   ```
+
+8. **Check** that the PR has no conflict left and that the workflow is **green**.
+
+> Golden rule: only edit `missions.json`. Never touch `check_missions.py`, `cartes.json`, `update_leaderboard.py` or the workflows — that would bypass the validation.
+
+## Your challenge card
+
+### How it is assigned
+
+Assignment is deterministic, with no randomness and no external service:
+
+```
+total = sum of the Unicode code points of the login characters, lowercased
+card = cards[total % number_of_cards]
+```
+
+In other words: add the codes of your login's letters, divide by the number of cards and keep the remainder. **The same login always gets the same card.** The workflow uses the PR author's login (`github.event.pull_request.user.login`), so there is nothing to declare.
+
+The available cards live in `cartes.json`: `colis-perdu`, `pont-effondre`, `radio-secours` and `avalanche`. Several people may receive the same card: their missions share the same title but have different identifiers (the login is part of the identifier), so everything stays compatible.
+
+### The workflow message
+
+On every run, the workflow shows:
+
+- the **login** used for the assignment;
+- the **card** assigned (identifier and title);
+- the **mission to add**, with its voluntary defect;
+- the **defect found** and a **hint** to fix it.
 
 ## Validation rules
 
@@ -16,21 +77,111 @@ The `check_missions.py` script verifies that:
 
 - `missions.json` exists and contains valid JSON;
 - the `missions` key is a list of **at least two missions**;
-- each mission has a non-empty `id`, a non-empty `title`, and an integer `difficulty` equal to **1, 2 or 3**;
-- the `TODO` identifier is forbidden (replace it with the name of your mission);
-- identifiers are **unique**.
+- each mission has a non-empty `id`, a non-empty `title` and an integer `difficulty` worth **1, 2 or 3**;
+- the `TODO` identifier has been replaced;
+- identifiers are **unique**;
+- **your card's mission** is present, with the expected identifier `<card>-<login>` and **no defect**.
 
-On any mismatch, the script prints the errors in French and exits with a non-zero status code. The GitHub Actions check then turns red.
+As long as your card's defect remains, the check stays red even if the rest of the file is valid.
 
-### Winning condition
+### Example of a corrected mission
 
-Your PR wins when:
+For login `david`, the `colis-perdu` card gives:
 
-1. the **Mission check** check is green;
-2. your mission is actually present in `missions.json`;
-3. your branch is up to date with `main` (conflict resolved and fix pushed).
+```json
+{
+  "missions": [
+    {
+      "id": "demo",
+      "title": "Mission de démonstration",
+      "difficulty": 1
+    },
+    {
+      "id": "colis-perdu-david",
+      "title": "Retrouver un colis égaré en zone urbaine",
+      "difficulty": 2
+    }
+  ]
+}
+```
 
-The workshop is successful when every team PR is green and merged.
+Both missions are valid and the identifiers are unique.
+
+## Progressive hints
+
+Start with hint 1. Hint 2 is there if you get stuck.
+
+| Defect | Hint 1 | Hint 2 |
+| --- | --- | --- |
+| Difficulty out of range | The `difficulty` field must be an integer, not text. | Only 1, 2 and 3 are accepted: replace 4 with 1, 2 or 3. |
+| Empty title | A mission without a title cannot be shown to the rescue team. | Fill `title` with a short sentence describing the mission. |
+| Empty identifier | Every mission needs an identifier to be found in the file. | Fill `id` with a unique text, for example `radio-secours-<your-login>`. |
+| Duplicate identifier | Two missions cannot share the same identifier. | `demo` is already taken: choose another one, for example `avalanche-<your-login>`. |
+
+Outside the faulty field, **change nothing**: the proposed identifier (`<card>-<login>`) must stay as is, unless the defect is precisely the identifier.
+
+## Understanding the Git conflict
+
+A conflict appears when two branches change **the same line** of the same file. Here, everyone replaces the same `TODO` block: Git cannot decide which version to keep and stops.
+
+```bash
+git fetch origin
+git merge origin/main
+```
+
+Git then reports:
+
+```
+CONFLICT (content): Merge conflict in missions.json
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+Open `missions.json`: Git has inserted markers.
+
+```
+<<<<<<< HEAD
+      "id": "colis-perdu-david",
+      ...
+=======
+      "id": "radio-secours-alice",
+      ...
+>>>>>>> origin/main
+```
+
+- `<<<<<<< HEAD` opens **your** version (your branch);
+- `=======` separates the two versions;
+- `>>>>>>> origin/main` closes the version coming from `main`.
+
+You must **keep both missions** (yours and the others'), delete the three marker lines and check that the JSON commas and braces are still correct.
+
+After resolving:
+
+```bash
+git add missions.json
+git commit -m "Résout le conflit des missions"
+git push
+```
+
+The check runs again automatically (`synchronize`): it must turn green.
+
+## Workshop schedule (30 minutes)
+
+| Time | Step |
+| --- | --- |
+| 0-3 min | Welcome, rescue team scenario, repository walkthrough. |
+| 3-6 min | Demo: fork, branch, PR, reading the card message. |
+| 6-14 min | Everyone forks, creates a branch, adds their card's mission and opens a PR. Checks are red: that is expected. |
+| 14-17 min | The facilitator merges the first PR: the conflict appears for everyone else. |
+| 17-25 min | Everyone merges `main`, resolves the conflict keeping all missions, fixes their card's defect and pushes. |
+| 25-30 min | Merge the remaining PRs, leaderboard, wrap-up: PRs, checks, conflicts, good practices. |
+
+## Facilitation rule (essential)
+
+> **All branches must be created from the same state of `main`, and all PRs must be opened before the first PR is merged.**
+
+This simultaneity is what creates the teaching conflict. If PRs are opened and merged one by one, no conflict appears and the exercise loses its point. Watch the PRs and only merge one once everyone has theirs.
+
+Fallback if the conflict does not appear: ask **two participants to edit exactly the same `TODO` block** (this already happens by design: every card replaces that block).
 
 ## Automatic leaderboard
 
@@ -68,166 +219,27 @@ File format:
 | **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the PR code (`check_missions.py`) |
 | **Classement** | `pull_request_target`, PR closed **and merged** | `contents: write` | the base branch only (`update_leaderboard.py`) |
 
-The validation workflow runs the PR code, so it has **read access only**. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the leaderboard script (`update_leaderboard.py`) is the one from the base branch. A PR therefore cannot alter the code that runs with the write token.
+The validation workflow runs the PR code, so it has **read access only**. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
 
 > **Branch protection caveat:** the leaderboard workflow pushes a commit to `main`. If you enable a rule that forbids direct pushes, allow the `github-actions[bot]` bot (or the workflow) to push, otherwise the leaderboard stays stuck.
 
-## Example of a valid mission
+## PRs from forks: what to know
 
-```json
-{
-  "missions": [
-    {
-      "id": "demo",
-      "title": "Mission de démonstration",
-      "difficulty": 1
-    },
-    {
-      "id": "sauvetage-montagne",
-      "title": "Secourir deux randonneurs bloqués par la neige",
-      "difficulty": 3
-    }
-  ]
-}
-```
+The game works with forks, but GitHub can complicate validation:
 
-In this example the `TODO` has been replaced by a real mission: the `sauvetage-montagne` identifier is unique, the title is explicit and the difficulty is 3.
+- depending on the repository settings, a workflow on a PR from a fork may require **manual approval** before starting;
+- without a workflow run there is no card displayed and no green check, hence **0 points** on the leaderboard;
+- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork.
 
-## Setting up the workshop (facilitator)
-
-1. Create the repository on GitHub from this folder.
-2. Check that the **Actions** tab is enabled.
-3. Make sure everyone starts from the same state of `main`.
-
-## A participant's journey
-
-### 1. Create your branch from the same state of `main`
-
-```bash
-git clone <repository-url>
-cd mission-git
-git switch -c mission/<your-first-name>
-```
-
-### 2. Edit `missions.json`
-
-Replace the `TODO` block with your own mission (unique identifier, clear title, difficulty from 1 to 3).
-
-### 3. Check locally before pushing
-
-```bash
-python3 check_missions.py
-```
-
-The message `Bravo ! Les 2 missions sont valides.` (or more) means everything is fine.
-
-### 4. Commit and push
-
-```bash
-git add missions.json
-git commit -m "Ajoute la mission <nom>"
-git push -u origin mission/<your-first-name>
-```
-
-### 5. Open the pull request
-
-- On GitHub, click **Compare & pull request**.
-- Suggested title: `Mission : <mission name>`.
-- Open the PR **against `main`**.
-
-### 6. Read the workflow result
-
-- The PR **Checks** tab, or the repository **Actions** tab.
-- Green = all good. Red = click the **Vérifier les missions** job to read the error printed by the script.
-
-## Resolving the conflict (the highlight of the game)
-
-Once the first participant has merged their PR, bring your branch up to date:
-
-```bash
-git fetch origin
-git merge origin/main
-```
-
-Git then reports a conflict on `missions.json`:
-
-```
-CONFLICT (content): Merge conflict in missions.json
-Automatic merge failed; fix conflicts and then commit the result.
-```
-
-### Understanding conflict markers
-
-Open `missions.json`: Git has inserted markers in the affected block.
-
-```
-<<<<<<< HEAD
-      "id": "votre-mission",
-      "title": "Votre titre",
-=======
-      "id": "mission-du-voisin",
-      "title": "Le titre du voisin",
->>>>>>> origin/main
-```
-
-- `<<<<<<< HEAD` opens **your** version (the current branch);
-- `=======` separates the two versions;
-- `>>>>>>> origin/main` closes the version coming from `main`.
-
-You must **choose, combine or rewrite** the block, then **delete the three marker lines**. The final file must remain valid JSON, with both missions kept and unique identifiers.
-
-### Save the fix
-
-After resolving:
-
-```bash
-git add missions.json
-git commit -m "Résout le conflit des missions"
-git push
-```
-
-The check automatically runs again on the PR (`synchronize`): it must turn green again.
-
-## Workshop schedule (30 minutes)
-
-| Time | Step |
-| --- | --- |
-| 0-3 min | Welcome, rescue team scenario, repository walkthrough. |
-| 3-8 min | Demo: branch, edit, PR, green check. |
-| 8-15 min | Participants create their branch, edit `missions.json` and open their PR. |
-| 15-18 min | The facilitator merges the first PR: the conflict appears for everyone else. |
-| 18-26 min | Everyone updates `main`, resolves the conflict, pushes the fix and sees their check turn green again. |
-| 26-30 min | Merge the remaining PRs, wrap up: PRs, checks, conflicts, good practices. |
-
-## Facilitation rule (essential)
-
-> **All participants must create their branch from the same state of `main` and open their PR before the first PR is merged.**
-
-This simultaneity is what creates the teaching conflict. If PRs are opened and merged one by one, no conflict appears and the exercise loses its point. So watch for PRs to be opened and only merge the first one once everyone has theirs.
-
-## Fallback option if the conflict does not appear
-
-Ask **two participants to edit exactly the same `TODO` block**, at the same place in the file, with different identifiers. The conflict is then guaranteed, even if the rest of the file differs.
-
-Other troubleshooting: check that participants really ran `git fetch origin` then `git merge origin/main` (and not `git pull` on a branch that was never linked).
-
-## Practical warning: PRs coming from forks
-
-GitHub Actions checks on a PR opened from a **fork** may depend on the repository settings:
-
-- for external contributors, GitHub may require **manual approval** before running the workflow;
-- secrets are not passed to workflows triggered by a fork;
-- depending on the repository configuration, the workflow may not run at all.
-
-For a workshop without surprises, the simplest option is for participants to be **repository collaborators** and push their branches directly to the repository (not from a fork). Otherwise, plan to approve runs manually in the **Actions** tab.
+Simplest and safest workshop option: participants can always run `python3 check_missions.py --auteur <login>` locally to learn their card and check their file, and the facilitator approves runs in the **Actions** tab. Also check the fork workflow approval setting under *Settings → Actions → General*.
 
 ## Checking the project locally
 
 ```bash
-python3 check_missions.py
+python3 check_missions.py --auteur <your-login>
 ```
 
-The shipped `missions.json` **fails on purpose**: it still contains the `TODO` identifier. That is the starting point of the game. The script prints an error and exits with a non-zero status code.
+The shipped `missions.json` **fails on purpose**: it still contains the `TODO` identifier. That is the starting point of the game.
 
 ## Project structure
 
@@ -236,6 +248,7 @@ mission-git/
 ├── README.md
 ├── README.en.md
 ├── missions.json
+├── cartes.json
 ├── check_missions.py
 ├── leaderboard.json
 ├── update_leaderboard.py
@@ -246,3 +259,55 @@ mission-git/
 ```
 
 No external dependencies, no secrets, no deployment steps: Python 3 and Git are all you need.
+
+---
+
+# Facilitator-only section
+
+> Do not share the solutions below with participants before the end of the exercise.
+
+## Card solutions
+
+Each card contains **exactly one** defect. Fixing it means touching only the faulty field.
+
+| Card | Expected mission | Voluntary defect | Fix |
+| --- | --- | --- | --- |
+| `colis-perdu` <br>(e.g. `david`) | Retrouver un colis égaré en zone urbaine | `difficulty` is `4` | Set `1`, `2` or `3` (the card's value: `2`) |
+| `pont-effondre` <br>(e.g. `rose`) | Rétablir un pont piéton effondré | `title` is empty | Write "Rétablir un pont piéton effondré" (or any non-empty title) |
+| `radio-secours` <br>(e.g. `alice`) | Rétablir la radio de secours | `id` is empty | Set `radio-secours-<login>` |
+| `avalanche` <br>(e.g. `bob`) | Dégager une route bloquée par une avalanche | `id` is `demo` (duplicate) | Set `avalanche-<login>` |
+
+Example of a fully corrected file (login `david`, card `colis-perdu`):
+
+```json
+{
+  "missions": [
+    {
+      "id": "demo",
+      "title": "Mission de démonstration",
+      "difficulty": 1
+    },
+    {
+      "id": "colis-perdu-david",
+      "title": "Retrouver un colis égaré en zone urbaine",
+      "difficulty": 2
+    }
+  ]
+}
+```
+
+## Check the assignment before the workshop
+
+To know each participant's card:
+
+```bash
+python3 check_missions.py --auteur <login> | head -4
+```
+
+The assignment is `sum of the login letter codes, modulo 4`. Over many logins the four cards are used almost equally; two participants can share a card without trouble, since their identifiers differ.
+
+## Game integrity
+
+- Explicitly ask participants **not to modify** `check_missions.py`, `cartes.json`, `update_leaderboard.py` or `.github/workflows/`.
+- For real protection, enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR that bypasses the validator then cannot be merged without review.
+- The validation workflow runs with `contents: read` only: it cannot write anything to the repository.

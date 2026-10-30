@@ -1,0 +1,47 @@
+{
+  "attribution": "somme des codes Unicode des caractères du pseudo (en minuscules), modulo le nombre de cartes",
+  "indices": {
+    "difficulte_hors_limites": [
+      "Le champ « difficulty » doit être un nombre entier, pas un texte.",
+      "Seules les valeurs 1, 2 et 3 sont acceptées : remplacez la valeur 4 par 1, 2 ou 3."
+    ],
+    "titre_vide": [
+      "Une mission sans titre ne peut pas être affichée à l'équipe de secours.",
+      "Remplissez « title » avec une phrase courte qui décrit la mission."
+    ],
+    "identifiant_vide": [
+      "Chaque mission a besoin d'un identifiant pour être retrouvée dans le fichier.",
+      "Remplissez « id » avec un texte unique, par exemple « radio-secours-<pseudo> »."
+    ],
+    "identifiant_duplique": [
+      "Deux missions ne peuvent pas partager le même identifiant.",
+      "L'identifiant « demo » est déjà pris : choisissez-en un autre, unique, par exemple « avalanche-<pseudo> »."
+    ]
+  },
+  "cartes": [
+    {
+      "id": "colis-perdu",
+      "titre": "Retrouver un colis égaré en zone urbaine",
+      "difficulte": 2,
+      "defaut": "difficulte_hors_limites"
+    },
+    {
+      "id": "pont-effondre",
+      "titre": "Rétablir un pont piéton effondré",
+      "difficulte": 3,
+      "defaut": "titre_vide"
+    },
+    {
+      "id": "radio-secours",
+      "titre": "Rétablir la radio de secours",
+      "difficulte": 1,
+      "defaut": "identifiant_vide"
+    },
+    {
+      "id": "avalanche",
+      "titre": "Dégager une route bloquée par une avalanche",
+      "difficulte": 2,
+      "defaut": "identifiant_duplique"
+    }
+  ]
+}
