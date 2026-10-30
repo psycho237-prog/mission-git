@@ -32,6 +32,46 @@ Your PR wins when:
 
 The workshop is successful when every team PR is green and merged.
 
+## Automatic leaderboard
+
+Every merged PR that passed the **Mission check** check awards **3 points** to its GitHub author. The leaderboard is written automatically to `leaderboard.json` by the **Classement** workflow.
+
+### Scoring rules
+
+- **3 points** per merged PR whose validation check is green at merge time.
+- Existing scores are **preserved**: the file is extended, never reset.
+- A PR is counted **only once**: its number is stored in `prs`, so re-running the workflow adds nothing.
+- The leaderboard is **sorted by descending points**; ties are ordered alphabetically by login.
+- A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow stops with an explicit message and changes nothing.
+
+File format:
+
+```json
+{
+  "entries": [
+    { "login": "bob", "points": 6, "prs": [13, 14] },
+    { "login": "alice", "points": 3, "prs": [12] }
+  ]
+}
+```
+
+### Viewing the leaderboard
+
+- Open `leaderboard.json` in the repository: the list is current and already sorted.
+- The **Actions** tab → **Classement** workflow: each run reports the points awarded and the PR author.
+- The repository history shows the automated commits "Met à jour le classement (PR #12)".
+
+### Two separate workflows, for safety
+
+| Workflow | Trigger | Permissions | Code executed |
+| --- | --- | --- | --- |
+| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the PR code (`check_missions.py`) |
+| **Classement** | `pull_request_target`, PR closed **and merged** | `contents: write` | the base branch only (`update_leaderboard.py`) |
+
+The validation workflow runs the PR code, so it has **read access only**. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the leaderboard script (`update_leaderboard.py`) is the one from the base branch. A PR therefore cannot alter the code that runs with the write token.
+
+> **Branch protection caveat:** the leaderboard workflow pushes a commit to `main`. If you enable a rule that forbids direct pushes, allow the `github-actions[bot]` bot (or the workflow) to push, otherwise the leaderboard stays stuck.
+
 ## Example of a valid mission
 
 ```json
@@ -197,9 +237,12 @@ mission-git/
 ├── README.en.md
 ├── missions.json
 ├── check_missions.py
+├── leaderboard.json
+├── update_leaderboard.py
 └── .github/
     └── workflows/
-        └── mission-check.yml
+        ├── mission-check.yml
+        └── leaderboard.yml
 ```
 
 No external dependencies, no secrets, no deployment steps: Python 3 and Git are all you need.

@@ -1,0 +1,86 @@
+name: Classement
+
+# Ce workflow ne se déclenche qu'à la fermeture d'une PR, après fusion.
+# Il s'exécute depuis la branche de base (pull_request_target) et ne récupère
+# jamais le code de la PR : aucun code non vérifié ne tourne avec le jeton
+# d'écriture.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: classement
+  cancel-in-progress: false
+
+jobs:
+  mettre-a-jour-classement:
+    name: Mettre à jour le classement
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer la branche de base (jamais le code de la PR)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
+
+      - name: Vérifier que la validation est passée
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh pr checks "$PR_NUMERO" --json name,state,bucket > /tmp/checks.json || true
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          NOM_CHECK = "Vérifier les missions"
+
+          try:
+              with open("/tmp/checks.json", encoding="utf-8") as fichier:
+                  checks = json.load(fichier)
+          except (OSError, json.JSONDecodeError):
+              print("::error::Impossible de lire les checks de la PR : points non attribués.")
+              sys.exit(1)
+
+          if not isinstance(checks, list):
+              print("::error::Réponse inattendue des checks : points non attribués.")
+              sys.exit(1)
+
+          resultats = [c for c in checks if c.get("name") == NOM_CHECK]
+          if not resultats:
+              print("::error::Aucun check « %s » sur cette PR : points non attribués." % NOM_CHECK)
+              sys.exit(1)
+
+          if any(c.get("bucket") != "pass" for c in resultats):
+              print("::error::Le check « %s » n'est pas vert : points non attribués." % NOM_CHECK)
+              sys.exit(1)
+
+          print("Validation confirmée pour la PR #%s." % os.environ["PR_NUMERO"])
+          PY
+
+      - name: Mettre à jour leaderboard.json
+        env:
+          AUTEUR: ${{ github.event.pull_request.user.login }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
+        run: python3 update_leaderboard.py --login "$AUTEUR" --pr "$PR_NUMERO" --points 3
+
+      - name: Publier le classement
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- leaderboard.json; then
+            echo "Classement inchangé (PR déjà comptée)."
+          else
+            git add leaderboard.json
+            git commit -m "Met à jour le classement (PR #${{ github.event.pull_request.number }})"
+            git push origin "HEAD:${{ github.event.pull_request.base.ref }}"
+          fi

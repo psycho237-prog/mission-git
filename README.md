@@ -32,6 +32,46 @@ Votre PR est gagnante quand :
 
 L'atelier est réussi lorsque toutes les PR de l'équipe sont vertes et fusionnées.
 
+## Classement automatique
+
+Chaque PR fusionnée qui a passé le check **Mission check** rapporte **3 points** à son auteur GitHub. Le classement est écrit automatiquement dans `leaderboard.json` par le workflow **Classement**.
+
+### Règles de score
+
+- **3 points** par PR fusionnée dont le check de validation est vert au moment de la fusion.
+- Les scores existants sont **conservés** : le fichier est complété, jamais réinitialisé.
+- Une PR n'est comptée **qu'une seule fois** : son numéro est enregistré dans `prs`, donc rejouer le workflow ne rajoute rien.
+- Le classement est **trié par points décroissants** ; à égalité, les logins sont rangés par ordre alphabétique.
+- Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork non approuvé — rapporte **0 point** : le workflow s'arrête avec un message explicite et ne modifie rien.
+
+Format du fichier :
+
+```json
+{
+  "entries": [
+    { "login": "bob", "points": 6, "prs": [13, 14] },
+    { "login": "alice", "points": 3, "prs": [12] }
+  ]
+}
+```
+
+### Consulter le classement
+
+- Ouvrez `leaderboard.json` dans le dépôt : la liste est à jour et déjà triée.
+- Onglet **Actions** → workflow **Classement** : chaque exécution indique les points attribués et l'auteur de la PR.
+- L'historique du dépôt montre les commits automatiques « Met à jour le classement (PR #12) ».
+
+### Deux workflows séparés, par sécurité
+
+| Workflow | Déclencheur | Permissions | Code exécuté |
+| --- | --- | --- | --- |
+| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | le code de la PR (`check_missions.py`) |
+| **Classement** | `pull_request_target`, PR fermée **et fusionnée** | `contents: write` | uniquement la branche de base (`update_leaderboard.py`) |
+
+Le workflow de validation exécute le code de la PR : il n'a donc **que la lecture**. Le workflow de classement possède l'écriture, mais il ne récupère **jamais** le code de la PR : `actions/checkout` pointe explicitement sur la branche de base, l'auteur et le numéro de PR sont lus dans l'événement, et le script de classement (`update_leaderboard.py`) est celui de la branche de base. Une PR ne peut donc pas modifier le code qui tourne avec le jeton d'écriture.
+
+> **Attention à la protection de branche :** le workflow de classement pousse un commit sur `main`. Si vous activez une règle qui interdit les poussées directes, autorisez le bot `github-actions[bot]` (ou le workflow) à pousser, sinon le classement restera bloqué.
+
 ## Exemple de mission valide
 
 ```json
@@ -197,9 +237,12 @@ mission-git/
 ├── README.en.md
 ├── missions.json
 ├── check_missions.py
+├── leaderboard.json
+├── update_leaderboard.py
 └── .github/
     └── workflows/
-        └── mission-check.yml
+        ├── mission-check.yml
+        └── leaderboard.yml
 ```
 
 Aucune dépendance externe, aucun secret, aucun déploiement : Python 3 et Git suffisent.
