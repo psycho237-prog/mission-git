@@ -1,0 +1,18 @@
+name: Mission check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  verifier-missions:
+    name: Vérifier les missions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+      - name: Valider missions.json
+        run: python3 check_missions.py
