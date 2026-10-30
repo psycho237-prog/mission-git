@@ -308,5 +308,5 @@ The assignment is `sum of the login letter codes, modulo 4`. Over many logins th
 ## Game integrity
 
 - Explicitly ask participants **not to modify** `check_missions.py`, `cartes.json`, `update_leaderboard.py` or `.github/workflows/`.
-- For real protection, enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR that bypasses the validator then cannot be merged without review.
+- The `Vérifier les missions` check runs the PR's own code, so a PR that edits `check_missions.py` can turn it green. Review the changed files before merging. The leaderboard workflow refuses points anyway to any PR that changes anything other than `missions.json`.
 - The validation workflow runs with `contents: read` only: it cannot write anything to the repository.

@@ -309,5 +309,5 @@ L'attribution est `somme des codes des lettres du pseudo, modulo 4`. Sur un gran
 ## Intégrité du jeu
 
 - Demandez explicitement aux participants de **ne pas modifier** `check_missions.py`, `cartes.json`, `update_leaderboard.py` ni `.github/workflows/`.
-- Pour une protection réelle, activez une **protection de branche** sur `main` exigeant le check `Vérifier les missions` avant fusion : une PR qui contourne le validateur ne pourra pas être fusionnée sans revue.
+- Le check `Vérifier les missions` exécute le code de la PR : une PR qui modifie `check_missions.py` peut donc le rendre vert. Relisez les fichiers modifiés avant de fusionner. Le workflow de classement refuse de toute façon les points à une PR qui modifie autre chose que `missions.json`.
 - Le workflow de validation tourne avec `contents: read` uniquement : il ne peut rien écrire dans le dépôt.

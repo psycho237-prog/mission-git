@@ -12,6 +12,7 @@ permissions:
   contents: write
   pull-requests: read
   checks: read
+  statuses: read
 
 concurrency:
   group: classement
@@ -28,6 +29,24 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 1
+
+      # Le check de validation exécute le code de la PR : une PR qui modifie
+      # check_missions.py ou les workflows pourrait obtenir un check vert sans
+      # avoir corrigé sa carte. Seul missions.json peut rapporter des points.
+      - name: Vérifier que seul missions.json a été modifié
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          fichiers=$(gh pr view "$PR_NUMERO" --json files --jq '.files[].path')
+          interdits=$(printf '%s\n' "$fichiers" | grep -vx 'missions.json' || true)
+          if [ -n "$interdits" ]; then
+            echo "::error::La PR modifie d'autres fichiers que missions.json : points non attribués."
+            printf '%s\n' "$interdits" | sed 's/^/  - /'
+            exit 1
+          fi
+          echo "Seul missions.json a été modifié."
 
       - name: Vérifier que la validation est passée
         env:
@@ -72,15 +91,28 @@ jobs:
           PR_NUMERO: ${{ github.event.pull_request.number }}
         run: python3 update_leaderboard.py --login "$AUTEUR" --pr "$PR_NUMERO" --points 3
 
+      # Une autre PR peut être fusionnée entre la récupération et la poussée :
+      # on rejoue alors notre commit sur la nouvelle branche de base.
       - name: Publier le classement
+        env:
+          BRANCHE: ${{ github.event.pull_request.base.ref }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git diff --quiet -- leaderboard.json; then
             echo "Classement inchangé (PR déjà comptée)."
-          else
-            git add leaderboard.json
-            git commit -m "Met à jour le classement (PR #${{ github.event.pull_request.number }})"
-            git push origin "HEAD:${{ github.event.pull_request.base.ref }}"
+            exit 0
           fi
+          git add leaderboard.json
+          git commit -m "Met à jour le classement (PR #$PR_NUMERO)"
+          for tentative in 1 2 3; do
+            if git push origin "HEAD:$BRANCHE"; then
+              exit 0
+            fi
+            echo "Poussée refusée (tentative $tentative), intégration de $BRANCHE…"
+            git pull --rebase origin "$BRANCHE"
+          done
+          echo "::error::Impossible de publier le classement après 3 tentatives."
+          exit 1
