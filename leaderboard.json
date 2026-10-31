@@ -1,3 +1,11 @@
 {
-  "entries": []
+  "entries": [
+    {
+      "login": "BREAKER-725",
+      "points": 3,
+      "prs": [
+        5
+      ]
+    }
+  ]
 }
