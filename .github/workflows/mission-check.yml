@@ -14,7 +14,17 @@ jobs:
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4
+
+      - name: Récupérer missions.json de la branche de base
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BASE"
+          git show FETCH_HEAD:missions.json > "$RUNNER_TEMP/missions-base.json" \
+            || echo '{"missions": []}' > "$RUNNER_TEMP/missions-base.json"
+
       - name: Valider missions.json et la carte de défi
         env:
           AUTEUR: ${{ github.event.pull_request.user.login }}
-        run: python3 check_missions.py --auteur "$AUTEUR"
+        run: python3 check_missions.py --auteur "$AUTEUR" --base "$RUNNER_TEMP/missions-base.json"

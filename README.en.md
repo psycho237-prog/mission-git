@@ -80,6 +80,7 @@ The `check_missions.py` script verifies that:
 - each mission has a non-empty `id`, a non-empty `title` and an integer `difficulty` worth **1, 2 or 3**;
 - the `TODO` identifier has been replaced;
 - identifiers are **unique**;
+- no mission already present on the base branch has been **deleted**: the workflow compares `missions.json` with the one from `main` (`--base`);
 - **your card's mission** is present, with the expected identifier `<card>-<login>` and **no defect**.
 
 As long as your card's defect remains, the check stays red even if the rest of the file is valid.
@@ -193,7 +194,7 @@ Every merged PR that passed the **Mission check** check awards **3 points** to i
 - Existing scores are **preserved**: the file is extended, never reset.
 - A PR is counted **only once**: its number is stored in `prs`, so re-running the workflow adds nothing.
 - The leaderboard is **sorted by descending points**; ties are ordered alphabetically by login.
-- A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow stops with an explicit message and changes nothing.
+- A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow prints a warning, finishes green and changes nothing.
 
 File format:
 
@@ -237,9 +238,12 @@ Simplest and safest workshop option: participants can always run `python3 check_
 
 ```bash
 python3 check_missions.py --auteur <your-login>
+python3 test_parcours.py
 ```
 
 The shipped `missions.json` **fails on purpose**: it still contains the `TODO` identifier. That is the starting point of the game.
+
+`test_parcours.py` replays the whole journey in a throwaway Git repository: red initial state, two participants' cards, conflict, resolution, refusal of a mission deletion and leaderboard. It touches neither the repository nor the network.
 
 ## Project structure
 
@@ -252,6 +256,7 @@ mission-git/
 ├── check_missions.py
 ├── leaderboard.json
 ├── update_leaderboard.py
+├── test_parcours.py
 └── .github/
     └── workflows/
         ├── mission-check.yml

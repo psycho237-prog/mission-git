@@ -80,6 +80,7 @@ Le script `check_missions.py` vérifie que :
 - chaque mission possède un `id` non vide, un `title` non vide et une `difficulty` entière valant **1, 2 ou 3** ;
 - l'identifiant `TODO` a bien été remplacé ;
 - les identifiants sont **uniques** ;
+- aucune mission déjà présente sur la branche de base n'a été **supprimée** : le workflow compare `missions.json` à celui de `main` (`--base`) ;
 - la **mission de votre carte** est présente, avec l'identifiant attendu `<carte>-<pseudo>`, et **sans défaut**.
 
 Tant que le défaut de votre carte est présent, le check reste rouge, même si le reste du fichier est valide.
@@ -193,7 +194,7 @@ Chaque PR fusionnée qui a passé le check **Mission check** rapporte **3 points
 - Les scores existants sont **conservés** : le fichier est complété, jamais réinitialisé.
 - Une PR n'est comptée **qu'une seule fois** : son numéro est enregistré dans `prs`, donc rejouer le workflow ne rajoute rien.
 - Le classement est **trié par points décroissants** ; à égalité, les logins sont rangés par ordre alphabétique.
-- Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork sans approbation — rapporte **0 point** : le workflow s'arrête avec un message explicite et ne modifie rien.
+- Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork sans approbation — rapporte **0 point** : le workflow affiche un avertissement, se termine au vert et ne modifie rien.
 
 Format du fichier :
 
@@ -237,9 +238,12 @@ Solution la plus simple et la plus sûre pour un atelier : les participants peuv
 
 ```bash
 python3 check_missions.py --auteur <votre-pseudo>
+python3 test_parcours.py
 ```
 
 Le `missions.json` livré **échoue volontairement** : il contient encore l'identifiant `TODO`. C'est le point de départ du jeu.
+
+`test_parcours.py` rejoue tout le parcours dans un dépôt Git jetable : état de départ rouge, carte de deux participants, conflit, résolution, refus d'une suppression de mission et classement. Il ne touche ni au dépôt ni au réseau.
 
 ## Structure du projet
 
@@ -252,6 +256,7 @@ mission-git/
 ├── check_missions.py
 ├── leaderboard.json
 ├── update_leaderboard.py
+├── test_parcours.py
 └── .github/
     └── workflows/
         ├── mission-check.yml
