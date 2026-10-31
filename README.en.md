@@ -142,23 +142,9 @@ CONFLICT (content): Merge conflict in missions.json
 Automatic merge failed; fix conflicts and then commit the result.
 ```
 
-Open `missions.json`: Git has inserted markers.
+Open `missions.json`: Git has wrapped the two versions in conflict markers.
 
-```
-<<<<<<< HEAD
-      "id": "colis-perdu-david",
-      ...
-=======
-      "id": "radio-secours-alice",
-      ...
->>>>>>> upstream/main
-```
-
-- `<<<<<<< HEAD` opens **your** version;
-- `=======` separates the two versions;
-- `>>>>>>>` closes the version coming from `main` (`upstream/main`, or `origin/main` if you used the *Sync fork* button).
-
-**Keep both missions** (yours and the others'), delete the three marker lines and check the JSON commas and braces.
+**Keep both missions** (yours and the others'), delete those markers and check the JSON commas and braces.
 
 ```bash
 git add missions.json
