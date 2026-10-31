@@ -176,14 +176,6 @@ Le check se relance automatiquement (`synchronize`) : il doit repasser au vert.
 | 17-25 min | Chacun intègre `main`, résout le conflit en gardant toutes les missions, corrige le défaut de sa carte et pousse. |
 | 25-30 min | Fusion des PR restantes, classement, bilan : PR, checks, conflits, bonnes pratiques. |
 
-## Consigne d'animation (indispensable)
-
-> **Toutes les branches doivent être créées depuis le même état de `main` et toutes les PR doivent être ouvertes avant la fusion de la première PR.**
-
-C'est cette simultanéité qui provoque le conflit pédagogique. Si les PR sont ouvertes et fusionnées une par une, aucun conflit n'apparaît et l'exercice perd son intérêt. Surveillez les PR et n'en fusionnez une que lorsque tout le monde a la sienne.
-
-Option de secours si le conflit n'apparaît pas : demandez à **deux participants de modifier exactement le même bloc `TODO`** (c'est déjà le cas par construction : toutes les cartes remplacent ce bloc).
-
 ## Classement automatique
 
 Chaque PR fusionnée qui a passé le check **Mission check** rapporte **3 points** à son auteur GitHub. Le classement est écrit automatiquement dans `leaderboard.json` par le workflow **Classement**.
@@ -213,27 +205,6 @@ Format du fichier :
 - Ouvrez `leaderboard.json` dans le dépôt : la liste est à jour et déjà triée.
 - Onglet **Actions** → workflow **Classement** : chaque exécution indique les points attribués et l'auteur de la PR.
 - L'historique du dépôt montre les commits automatiques « Met à jour le classement (PR #12) ».
-
-### Deux workflows séparés, par sécurité
-
-| Workflow | Déclencheur | Permissions | Code exécuté |
-| --- | --- | --- | --- |
-| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | le validateur de la branche de base, appliqué au `missions.json` de la PR |
-| **Classement** | `pull_request_target`, PR fermée **et fusionnée** | `contents: write` | uniquement la branche de base (`update_leaderboard.py`) |
-
-Le workflow de validation n'exécute que le validateur et les cartes de la branche de base : il n'a donc **que la lecture**, et réécrire `check_missions.py` dans une PR ne change rien au verdict. Le workflow de classement possède l'écriture, mais il ne récupère **jamais** le code de la PR : `actions/checkout` pointe explicitement sur la branche de base, l'auteur et le numéro de PR sont lus dans l'événement, et le script exécuté est celui de la branche de base. Aucun code de PR ne tourne avec un jeton d'écriture.
-
-> **Attention à la protection de branche :** le workflow de classement pousse un commit sur `main`. Si vous activez une règle qui interdit les poussées directes, autorisez le bot `github-actions[bot]` (ou le workflow) à pousser, sinon le classement restera bloqué.
-
-## PR venant de forks : ce qu'il faut savoir
-
-Le jeu fonctionne avec des forks, mais GitHub peut compliquer la validation :
-
-- selon les réglages du dépôt, un workflow sur une PR venue d'un fork peut demander une **approbation manuelle** avant de démarrer ;
-- sans exécution du workflow, il n'y a ni carte affichée ni check vert, donc **0 point** au classement ;
-- le workflow de validation utilise la version du fichier de workflow de la PR (événement `pull_request`) : il faut donc que le dépôt de base ait le workflow avant les forks ; en revanche le validateur exécuté est bien celui de la branche de base.
-
-Solution la plus simple et la plus sûre pour un atelier : les participants peuvent toujours exécuter `python3 check_missions.py --auteur <pseudo>` en local pour connaître leur carte et vérifier leur fichier, et l'animateur approuve les exécutions dans l'onglet **Actions**. Vérifiez aussi que l'option d'approbation des workflows de forks est réglée comme vous le souhaitez dans *Settings → Actions → General*.
 
 ## Vérifier le projet en local
 
@@ -268,58 +239,3 @@ mission-git/
 ```
 
 Aucune dépendance externe, aucun secret, aucun déploiement : Python 3 et Git suffisent.
-
----
-
-# Section réservée à l'animateur
-
-Guide d'installation pas à pas (protection de branche, Code Owners, approbation des forks) : [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md).
-
-> Les solutions ci-dessous ne doivent pas être distribuées aux participants avant la fin de l'exercice.
-
-## Solutions des cartes
-
-Chaque carte contient **exactement un** défaut. La correction consiste à ne toucher que le champ fautif.
-
-| Carte | Mission attendue | Défaut volontaire | Correction |
-| --- | --- | --- | --- |
-| `colis-perdu` <br>(ex. : `david`) | Retrouver un colis égaré en zone urbaine | `difficulty` vaut `4` | Mettre `1`, `2` ou `3` (valeur de la carte : `2`) |
-| `pont-effondre` <br>(ex. : `rose`) | Rétablir un pont piéton effondré | `title` est vide | Écrire « Rétablir un pont piéton effondré » (ou tout titre non vide) |
-| `radio-secours` <br>(ex. : `alice`) | Rétablir la radio de secours | `id` est vide | Mettre `radio-secours-<pseudo>` |
-| `avalanche` <br>(ex. : `bob`) | Dégager une route bloquée par une avalanche | `id` vaut `demo` (duplicata) | Mettre `avalanche-<pseudo>` |
-
-Exemple de fichier entièrement corrigé (pseudo `david`, carte `colis-perdu`) :
-
-```json
-{
-  "missions": [
-    {
-      "id": "demo",
-      "title": "Mission de démonstration",
-      "difficulty": 1
-    },
-    {
-      "id": "colis-perdu-david",
-      "title": "Retrouver un colis égaré en zone urbaine",
-      "difficulty": 2
-    }
-  ]
-}
-```
-
-## Vérifier l'attribution avant l'atelier
-
-Pour connaître la carte de chaque participant :
-
-```bash
-python3 check_missions.py --auteur <pseudo> | head -4
-```
-
-L'attribution est `somme des codes des lettres du pseudo, modulo 4`. Sur un grand nombre de pseudos, les quatre cartes sont utilisées de façon quasi égale ; deux participants peuvent partager une carte sans problème, leurs identifiants restent différents.
-
-## Intégrité du jeu
-
-- Demandez explicitement aux participants de **ne pas modifier** `check_missions.py`, `cartes.json`, `update_leaderboard.py` ni `.github/workflows/`.
-- Activez aussi une **protection de branche** sur `main` exigeant le check `Vérifier les missions` avant fusion : une PR sans check reste bloquée.
-- `.github/CODEOWNERS` désigne l'animateur comme propriétaire de `check_missions.py`, `cartes.json`, `update_leaderboard.py` et `.github/`. Activez la protection de branche avec **« Require a review from Code Owners »** : une PR qui touche ces fichiers demande alors l'accord de l'animateur, et les autres participants ne peuvent pas la fusionner seuls. Remplacez le login du fichier par celui de l'animateur.
-- Le workflow de validation tourne avec `contents: read` uniquement : il ne peut rien écrire dans le dépôt.

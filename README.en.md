@@ -175,14 +175,6 @@ The check runs again automatically (`synchronize`): it must turn green.
 | 17-25 min | Everyone merges `main`, resolves the conflict keeping all missions, fixes their card's defect and pushes. |
 | 25-30 min | Merge the remaining PRs, leaderboard, wrap-up: PRs, checks, conflicts, good practices. |
 
-## Facilitation rule (essential)
-
-> **All branches must be created from the same state of `main`, and all PRs must be opened before the first PR is merged.**
-
-This simultaneity is what creates the teaching conflict. If PRs are opened and merged one by one, no conflict appears and the exercise loses its point. Watch the PRs and only merge one once everyone has theirs.
-
-Fallback if the conflict does not appear: ask **two participants to edit exactly the same `TODO` block** (this already happens by design: every card replaces that block).
-
 ## Automatic leaderboard
 
 Every merged PR that passed the **Mission check** check awards **3 points** to its GitHub author. The leaderboard is written automatically to `leaderboard.json` by the **Classement** workflow.
@@ -212,27 +204,6 @@ File format:
 - Open `leaderboard.json` in the repository: the list is current and already sorted.
 - The **Actions** tab → **Classement** workflow: each run reports the points awarded and the PR author.
 - The repository history shows the automated commits "Met à jour le classement (PR #12)".
-
-### Two separate workflows, for safety
-
-| Workflow | Trigger | Permissions | Code executed |
-| --- | --- | --- | --- |
-| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the base branch validator, applied to the PR's `missions.json` |
-| **Classement** | `pull_request_target`, PR closed **and merged** | `contents: write` | the base branch only (`update_leaderboard.py`) |
-
-The validation workflow only runs the validator and cards from the base branch, so it has **read access only**, and rewriting `check_missions.py` in a PR changes nothing about the verdict. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
-
-> **Branch protection caveat:** the leaderboard workflow pushes a commit to `main`. If you enable a rule that forbids direct pushes, allow the `github-actions[bot]` bot (or the workflow) to push, otherwise the leaderboard stays stuck.
-
-## PRs from forks: what to know
-
-The game works with forks, but GitHub can complicate validation:
-
-- depending on the repository settings, a workflow on a PR from a fork may require **manual approval** before starting;
-- without a workflow run there is no card displayed and no green check, hence **0 points** on the leaderboard;
-- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork; the validator that actually runs, however, comes from the base branch.
-
-Simplest and safest workshop option: participants can always run `python3 check_missions.py --auteur <login>` locally to learn their card and check their file, and the facilitator approves runs in the **Actions** tab. Also check the fork workflow approval setting under *Settings → Actions → General*.
 
 ## Checking the project locally
 
@@ -267,58 +238,3 @@ mission-git/
 ```
 
 No external dependencies, no secrets, no deployment steps: Python 3 and Git are all you need.
-
----
-
-# Facilitator-only section
-
-Step-by-step setup (branch protection, Code Owners, fork approvals) is in [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md) — in French.
-
-> Do not share the solutions below with participants before the end of the exercise.
-
-## Card solutions
-
-Each card contains **exactly one** defect. Fixing it means touching only the faulty field.
-
-| Card | Expected mission | Voluntary defect | Fix |
-| --- | --- | --- | --- |
-| `colis-perdu` <br>(e.g. `david`) | Retrouver un colis égaré en zone urbaine | `difficulty` is `4` | Set `1`, `2` or `3` (the card's value: `2`) |
-| `pont-effondre` <br>(e.g. `rose`) | Rétablir un pont piéton effondré | `title` is empty | Write "Rétablir un pont piéton effondré" (or any non-empty title) |
-| `radio-secours` <br>(e.g. `alice`) | Rétablir la radio de secours | `id` is empty | Set `radio-secours-<login>` |
-| `avalanche` <br>(e.g. `bob`) | Dégager une route bloquée par une avalanche | `id` is `demo` (duplicate) | Set `avalanche-<login>` |
-
-Example of a fully corrected file (login `david`, card `colis-perdu`):
-
-```json
-{
-  "missions": [
-    {
-      "id": "demo",
-      "title": "Mission de démonstration",
-      "difficulty": 1
-    },
-    {
-      "id": "colis-perdu-david",
-      "title": "Retrouver un colis égaré en zone urbaine",
-      "difficulty": 2
-    }
-  ]
-}
-```
-
-## Check the assignment before the workshop
-
-To know each participant's card:
-
-```bash
-python3 check_missions.py --auteur <login> | head -4
-```
-
-The assignment is `sum of the login letter codes, modulo 4`. Over many logins the four cards are used almost equally; two participants can share a card without trouble, since their identifiers differ.
-
-## Game integrity
-
-- Explicitly ask participants **not to modify** `check_missions.py`, `cartes.json`, `update_leaderboard.py` or `.github/workflows/`.
-- Also enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR without a check stays blocked.
-- `.github/CODEOWNERS` makes the facilitator the owner of `check_missions.py`, `cartes.json`, `update_leaderboard.py` and `.github/`. Enable branch protection with **"Require a review from Code Owners"**: a PR touching those files then needs the facilitator's approval, and other participants cannot merge it alone. Replace the login in that file with the facilitator's.
-- The validation workflow runs with `contents: read` only: it cannot write anything to the repository.
