@@ -251,6 +251,7 @@ The shipped `missions.json` **fails on purpose**: it still contains the `TODO` i
 mission-git/
 ├── README.md
 ├── README.en.md
+├── GUIDE-ANIMATEUR.md
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
@@ -269,6 +270,8 @@ No external dependencies, no secrets, no deployment steps: Python 3 and Git are 
 ---
 
 # Facilitator-only section
+
+Step-by-step setup (branch protection, Code Owners, fork approvals) is in [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md) — in French.
 
 > Do not share the solutions below with participants before the end of the exercise.
 

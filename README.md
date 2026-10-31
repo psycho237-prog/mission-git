@@ -251,6 +251,7 @@ Le `missions.json` livré **échoue volontairement** : il contient encore l'iden
 mission-git/
 ├── README.md
 ├── README.en.md
+├── GUIDE-ANIMATEUR.md
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
@@ -269,6 +270,8 @@ Aucune dépendance externe, aucun secret, aucun déploiement : Python 3 et Git s
 ---
 
 # Section réservée à l'animateur
+
+Guide d'installation pas à pas (protection de branche, Code Owners, approbation des forks) : [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md).
 
 > Les solutions ci-dessous ne doivent pas être distribuées aux participants avant la fin de l'exercice.
 
