@@ -45,7 +45,7 @@ Comme tout le monde remplace le même bloc `TODO`, Git finit par provoquer un **
 
 8. **Vérifiez** que la PR n'a plus de conflit et que le workflow est **vert**.
 
-> Règle d'or : ne modifiez que `missions.json`. Ne touchez jamais à `check_missions.py`, `cartes.json`, `update_leaderboard.py` ni aux workflows : ce serait contourner la vérification.
+> Règle d'or : ne modifiez que `missions.json`. Ne touchez jamais à `check_missions.py`, `cartes.json`, `update_leaderboard.py` ni aux workflows : c'est le validateur de la branche de base qui est exécuté, et une PR qui touche ces fichiers est refusée en revue.
 
 ## Votre carte de défi
 
@@ -80,6 +80,7 @@ Le script `check_missions.py` vérifie que :
 - chaque mission possède un `id` non vide, un `title` non vide et une `difficulty` entière valant **1, 2 ou 3** ;
 - l'identifiant `TODO` a bien été remplacé ;
 - les identifiants sont **uniques** ;
+- aucune mission déjà présente sur la branche de base n'a été **supprimée** : le workflow compare `missions.json` à celui de `main` (`--base`) ;
 - la **mission de votre carte** est présente, avec l'identifiant attendu `<carte>-<pseudo>`, et **sans défaut**.
 
 Tant que le défaut de votre carte est présent, le check reste rouge, même si le reste du fichier est valide.
@@ -193,7 +194,8 @@ Chaque PR fusionnée qui a passé le check **Mission check** rapporte **3 points
 - Les scores existants sont **conservés** : le fichier est complété, jamais réinitialisé.
 - Une PR n'est comptée **qu'une seule fois** : son numéro est enregistré dans `prs`, donc rejouer le workflow ne rajoute rien.
 - Le classement est **trié par points décroissants** ; à égalité, les logins sont rangés par ordre alphabétique.
-- Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork sans approbation — rapporte **0 point** : le workflow s'arrête avec un message explicite et ne modifie rien.
+- Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork sans approbation — rapporte **0 point** : le workflow affiche un avertissement, se termine au vert et ne modifie rien.
+- Même chose pour une PR qui modifie **autre chose que `missions.json`** (validateur, cartes, workflows) : elle ne rapporte aucun point.
 
 Format du fichier :
 
@@ -216,10 +218,10 @@ Format du fichier :
 
 | Workflow | Déclencheur | Permissions | Code exécuté |
 | --- | --- | --- | --- |
-| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | le code de la PR (`check_missions.py`) |
+| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | le validateur de la branche de base, appliqué au `missions.json` de la PR |
 | **Classement** | `pull_request_target`, PR fermée **et fusionnée** | `contents: write` | uniquement la branche de base (`update_leaderboard.py`) |
 
-Le workflow de validation exécute le code de la PR : il n'a donc **que la lecture**. Le workflow de classement possède l'écriture, mais il ne récupère **jamais** le code de la PR : `actions/checkout` pointe explicitement sur la branche de base, l'auteur et le numéro de PR sont lus dans l'événement, et le script exécuté est celui de la branche de base. Aucun code de PR ne tourne avec un jeton d'écriture.
+Le workflow de validation n'exécute que le validateur et les cartes de la branche de base : il n'a donc **que la lecture**, et réécrire `check_missions.py` dans une PR ne change rien au verdict. Le workflow de classement possède l'écriture, mais il ne récupère **jamais** le code de la PR : `actions/checkout` pointe explicitement sur la branche de base, l'auteur et le numéro de PR sont lus dans l'événement, et le script exécuté est celui de la branche de base. Aucun code de PR ne tourne avec un jeton d'écriture.
 
 > **Attention à la protection de branche :** le workflow de classement pousse un commit sur `main`. Si vous activez une règle qui interdit les poussées directes, autorisez le bot `github-actions[bot]` (ou le workflow) à pousser, sinon le classement restera bloqué.
 
@@ -229,7 +231,7 @@ Le jeu fonctionne avec des forks, mais GitHub peut compliquer la validation :
 
 - selon les réglages du dépôt, un workflow sur une PR venue d'un fork peut demander une **approbation manuelle** avant de démarrer ;
 - sans exécution du workflow, il n'y a ni carte affichée ni check vert, donc **0 point** au classement ;
-- le workflow de validation utilise la version du fichier de workflow de la PR (événement `pull_request`) : il faut donc que le dépôt de base ait le workflow avant les forks.
+- le workflow de validation utilise la version du fichier de workflow de la PR (événement `pull_request`) : il faut donc que le dépôt de base ait le workflow avant les forks ; en revanche le validateur exécuté est bien celui de la branche de base.
 
 Solution la plus simple et la plus sûre pour un atelier : les participants peuvent toujours exécuter `python3 check_missions.py --auteur <pseudo>` en local pour connaître leur carte et vérifier leur fichier, et l'animateur approuve les exécutions dans l'onglet **Actions**. Vérifiez aussi que l'option d'approbation des workflows de forks est réglée comme vous le souhaitez dans *Settings → Actions → General*.
 
@@ -237,9 +239,12 @@ Solution la plus simple et la plus sûre pour un atelier : les participants peuv
 
 ```bash
 python3 check_missions.py --auteur <votre-pseudo>
+python3 test_parcours.py
 ```
 
 Le `missions.json` livré **échoue volontairement** : il contient encore l'identifiant `TODO`. C'est le point de départ du jeu.
+
+`test_parcours.py` rejoue tout le parcours dans un dépôt Git jetable : état de départ rouge, carte de deux participants, conflit, résolution, refus d'une suppression de mission et classement. Il ne touche ni au dépôt ni au réseau.
 
 ## Structure du projet
 
@@ -247,12 +252,16 @@ Le `missions.json` livré **échoue volontairement** : il contient encore l'iden
 mission-git/
 ├── README.md
 ├── README.en.md
+├── GUIDE-ANIMATEUR.md
+├── .gitignore
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
 ├── leaderboard.json
 ├── update_leaderboard.py
+├── test_parcours.py
 └── .github/
+    ├── CODEOWNERS
     └── workflows/
         ├── mission-check.yml
         └── leaderboard.yml
@@ -263,6 +272,8 @@ Aucune dépendance externe, aucun secret, aucun déploiement : Python 3 et Git s
 ---
 
 # Section réservée à l'animateur
+
+Guide d'installation pas à pas (protection de branche, Code Owners, approbation des forks) : [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md).
 
 > Les solutions ci-dessous ne doivent pas être distribuées aux participants avant la fin de l'exercice.
 
@@ -309,5 +320,6 @@ L'attribution est `somme des codes des lettres du pseudo, modulo 4`. Sur un gran
 ## Intégrité du jeu
 
 - Demandez explicitement aux participants de **ne pas modifier** `check_missions.py`, `cartes.json`, `update_leaderboard.py` ni `.github/workflows/`.
-- Pour une protection réelle, activez une **protection de branche** sur `main` exigeant le check `Vérifier les missions` avant fusion : une PR qui contourne le validateur ne pourra pas être fusionnée sans revue.
+- Activez aussi une **protection de branche** sur `main` exigeant le check `Vérifier les missions` avant fusion : une PR sans check reste bloquée.
+- `.github/CODEOWNERS` désigne l'animateur comme propriétaire de `check_missions.py`, `cartes.json`, `update_leaderboard.py` et `.github/`. Activez la protection de branche avec **« Require a review from Code Owners »** : une PR qui touche ces fichiers demande alors l'accord de l'animateur, et les autres participants ne peuvent pas la fusionner seuls. Remplacez le login du fichier par celui de l'animateur.
 - Le workflow de validation tourne avec `contents: read` uniquement : il ne peut rien écrire dans le dépôt.
