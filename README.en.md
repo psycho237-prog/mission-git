@@ -44,7 +44,7 @@ Because everyone replaces the same `TODO` block, Git eventually raises a **confl
 
 8. **Check** that the PR has no conflict left and that the workflow is **green**.
 
-> Golden rule: only edit `missions.json`. Never touch `check_missions.py`, `cartes.json`, `update_leaderboard.py` or the workflows — that would bypass the validation.
+> Golden rule: only edit `missions.json`. Never touch `check_missions.py`, `cartes.json`, `update_leaderboard.py` or the workflows — the validator that runs comes from the base branch, and a PR touching those files is rejected in review.
 
 ## Your challenge card
 
@@ -79,6 +79,7 @@ The `check_missions.py` script verifies that:
 - each mission has a non-empty `id`, a non-empty `title` and an integer `difficulty` worth **1, 2 or 3**;
 - the `TODO` identifier has been replaced;
 - identifiers are **unique**;
+- no mission already present on the base branch has been **deleted**: the workflow compares `missions.json` with the one from `main` (`--base`);
 - **your card's mission** is present, with the expected identifier `<card>-<login>` and **no defect**.
 
 As long as your card's defect remains, the check stays red even if the rest of the file is valid.
@@ -192,7 +193,8 @@ Every merged PR that passed the **Mission check** check awards **3 points** to i
 - Existing scores are **preserved**: the file is extended, never reset.
 - A PR is counted **only once**: its number is stored in `prs`, so re-running the workflow adds nothing.
 - The leaderboard is **sorted by descending points**; ties are ordered alphabetically by login.
-- A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow stops with an explicit message and changes nothing.
+- A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow prints a warning, finishes green and changes nothing.
+- Same for a PR that changes **anything other than `missions.json`** (validator, cards, workflows): it scores no points.
 
 File format:
 
@@ -215,10 +217,10 @@ File format:
 
 | Workflow | Trigger | Permissions | Code executed |
 | --- | --- | --- | --- |
-| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the PR code (`check_missions.py`) |
+| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the base branch validator, applied to the PR's `missions.json` |
 | **Classement** | `pull_request_target`, PR closed **and merged** | `contents: write` | the base branch only (`update_leaderboard.py`) |
 
-The validation workflow runs the PR code, so it has **read access only**. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
+The validation workflow only runs the validator and cards from the base branch, so it has **read access only**, and rewriting `check_missions.py` in a PR changes nothing about the verdict. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
 
 > **Branch protection caveat:** the leaderboard workflow pushes a commit to `main`. If you enable a rule that forbids direct pushes, allow the `github-actions[bot]` bot (or the workflow) to push, otherwise the leaderboard stays stuck.
 
@@ -228,7 +230,7 @@ The game works with forks, but GitHub can complicate validation:
 
 - depending on the repository settings, a workflow on a PR from a fork may require **manual approval** before starting;
 - without a workflow run there is no card displayed and no green check, hence **0 points** on the leaderboard;
-- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork.
+- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork; the validator that actually runs, however, comes from the base branch.
 
 Simplest and safest workshop option: participants can always run `python3 check_missions.py --auteur <login>` locally to learn their card and check their file, and the facilitator approves runs in the **Actions** tab. Also check the fork workflow approval setting under *Settings → Actions → General*.
 
@@ -236,9 +238,12 @@ Simplest and safest workshop option: participants can always run `python3 check_
 
 ```bash
 python3 check_missions.py --auteur <your-login>
+python3 test_parcours.py
 ```
 
 The shipped `missions.json` **fails on purpose**: it still contains the `TODO` identifier. That is the starting point of the game.
+
+`test_parcours.py` replays the whole journey in a throwaway Git repository: red initial state, two participants' cards, conflict, resolution, refusal of a mission deletion and leaderboard. It touches neither the repository nor the network.
 
 ## Project structure
 
@@ -246,12 +251,16 @@ The shipped `missions.json` **fails on purpose**: it still contains the `TODO` i
 mission-git/
 ├── README.md
 ├── README.en.md
+├── GUIDE-ANIMATEUR.md
+├── .gitignore
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
 ├── leaderboard.json
 ├── update_leaderboard.py
+├── test_parcours.py
 └── .github/
+    ├── CODEOWNERS
     └── workflows/
         ├── mission-check.yml
         └── leaderboard.yml
@@ -262,6 +271,8 @@ No external dependencies, no secrets, no deployment steps: Python 3 and Git are 
 ---
 
 # Facilitator-only section
+
+Step-by-step setup (branch protection, Code Owners, fork approvals) is in [GUIDE-ANIMATEUR.md](GUIDE-ANIMATEUR.md) — in French.
 
 > Do not share the solutions below with participants before the end of the exercise.
 
@@ -308,5 +319,6 @@ The assignment is `sum of the login letter codes, modulo 4`. Over many logins th
 ## Game integrity
 
 - Explicitly ask participants **not to modify** `check_missions.py`, `cartes.json`, `update_leaderboard.py` or `.github/workflows/`.
-- For real protection, enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR that bypasses the validator then cannot be merged without review.
+- Also enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR without a check stays blocked.
+- `.github/CODEOWNERS` makes the facilitator the owner of `check_missions.py`, `cartes.json`, `update_leaderboard.py` and `.github/`. Enable branch protection with **"Require a review from Code Owners"**: a PR touching those files then needs the facilitator's approval, and other participants cannot merge it alone. Replace the login in that file with the facilitator's.
 - The validation workflow runs with `contents: read` only: it cannot write anything to the repository.

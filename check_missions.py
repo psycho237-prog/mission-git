@@ -272,6 +272,27 @@ def verifier_missions(donnees, ignorer=None):
     return erreurs
 
 
+def identifiants_attendus(missions):
+    """Liste les identifiants non vides et autres que TODO, dans l'ordre du fichier."""
+    identifiants = []
+    for mission in missions:
+        if not isinstance(mission, dict):
+            continue
+        identifiant = mission.get("id")
+        if not isinstance(identifiant, str):
+            continue
+        identifiant = identifiant.strip()
+        if identifiant and identifiant != IDENTIFIANT_INTERDIT:
+            identifiants.append(identifiant)
+    return identifiants
+
+
+def missions_supprimees(missions, missions_base):
+    """Retourne les identifiants de la base qui ne sont plus présents."""
+    presents = set(identifiants_attendus(missions))
+    return [i for i in identifiants_attendus(missions_base) if i not in presents]
+
+
 def afficher_problemes_carte(problemes, carte, pseudo, indices):
     attendu = identifiant_attendu(carte, pseudo)
 
@@ -312,7 +333,16 @@ def main(argv=None):
         "--missions",
         type=Path,
         default=FICHIER_MISSIONS,
-        help="chemin de missions.json (utilisé pour les tests)",
+        help="chemin du missions.json à vérifier",
+    )
+    analyseur.add_argument(
+        "--base",
+        type=Path,
+        default=None,
+        help=(
+            "missions.json de la branche de base : ses missions doivent "
+            "toutes rester présentes (aucune suppression autorisée)"
+        ),
     )
     options = analyseur.parse_args(argv)
 
@@ -361,6 +391,27 @@ def main(argv=None):
             print("")
 
     erreurs_globales = verifier_missions(donnees, ignorer=mission_carte)
+
+    missions_base = []
+    if options.base is not None:
+        donnees_base, erreurs_base = charger_json(options.base)
+        if donnees_base is None:
+            print("ERREUR : référence de base illisible : {}".format(erreurs_base[0]),
+                  file=sys.stderr)
+            return 1
+        missions_base = (
+            donnees_base.get("missions") if isinstance(donnees_base, dict) else None
+        )
+        if not isinstance(missions_base, list):
+            missions_base = []
+
+        for identifiant in missions_supprimees(
+            missions if isinstance(missions, list) else [], missions_base
+        ):
+            erreurs_globales.append(
+                "la mission « {} » déjà présente sur la branche de base a été supprimée : "
+                "conservez les missions des autres participants.".format(identifiant)
+            )
 
     if erreurs_globales:
         print("ERREUR : le fichier missions.json n'est pas conforme :", file=sys.stderr)

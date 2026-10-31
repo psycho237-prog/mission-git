@@ -1,0 +1,11 @@
+# Propriétaires des fichiers de vérification.
+#
+# Avec la protection de branche « Require a review from Code Owners », une PR
+# qui touche l'un de ces fichiers doit être approuvée par l'animateur : c'est
+# la seule barrière contre une PR qui réécrirait le validateur ou sa propre
+# carte. Remplacez le login ci-dessous par celui de l'animateur de l'atelier.
+
+/check_missions.py      @psycho237-prog
+/cartes.json            @psycho237-prog
+/update_leaderboard.py  @psycho237-prog
+/.github/               @psycho237-prog
