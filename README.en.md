@@ -195,6 +195,7 @@ Every merged PR that passed the **Mission check** check awards **3 points** to i
 - A PR is counted **only once**: its number is stored in `prs`, so re-running the workflow adds nothing.
 - The leaderboard is **sorted by descending points**; ties are ordered alphabetically by login.
 - A merged PR with no green check — or no check at all, for example from an unapproved fork — scores **0 points**: the workflow prints a warning, finishes green and changes nothing.
+- Same for a PR that changes **anything other than `missions.json`** (validator, cards, workflows): it scores no points.
 
 File format:
 
@@ -252,6 +253,7 @@ mission-git/
 ├── README.md
 ├── README.en.md
 ├── GUIDE-ANIMATEUR.md
+├── .gitignore
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
