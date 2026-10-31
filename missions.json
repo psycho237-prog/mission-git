@@ -6,9 +6,10 @@
       "difficulty": 1
     },
     {
-      "id": "TODO",
-      "title": "À remplacer par votre mission",
-      "difficulty": 1
+      "id": "demo",
+      "title": "Dégager une route bloquée par une avalanche",
+      "difficulty": 2
+
     }
   ]
 }
