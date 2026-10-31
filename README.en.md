@@ -222,7 +222,6 @@ The shipped `missions.json` **fails on purpose**: it still contains the `TODO` i
 mission-git/
 ├── README.md
 ├── README.en.md
-├── GUIDE-ANIMATEUR.md
 ├── .gitignore
 ├── missions.json
 ├── cartes.json

@@ -223,7 +223,6 @@ Le `missions.json` livré **échoue volontairement** : il contient encore l'iden
 mission-git/
 ├── README.md
 ├── README.en.md
-├── GUIDE-ANIMATEUR.md
 ├── .gitignore
 ├── missions.json
 ├── cartes.json
