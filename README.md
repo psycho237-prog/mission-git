@@ -323,4 +323,3 @@ L'attribution est `somme des codes des lettres du pseudo, modulo 4`. Sur un gran
 - Activez aussi une **protection de branche** sur `main` exigeant le check `Vérifier les missions` avant fusion : une PR sans check reste bloquée.
 - `.github/CODEOWNERS` désigne l'animateur comme propriétaire de `check_missions.py`, `cartes.json`, `update_leaderboard.py` et `.github/`. Activez la protection de branche avec **« Require a review from Code Owners »** : une PR qui touche ces fichiers demande alors l'accord de l'animateur, et les autres participants ne peuvent pas la fusionner seuls. Remplacez le login du fichier par celui de l'animateur.
 - Le workflow de validation tourne avec `contents: read` uniquement : il ne peut rien écrire dans le dépôt.
-
