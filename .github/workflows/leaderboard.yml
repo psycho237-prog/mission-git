@@ -12,6 +12,7 @@ permissions:
   contents: write
   pull-requests: read
   checks: read
+  statuses: read
 
 concurrency:
   group: classement
@@ -28,6 +29,61 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 1
+
+      # Défense en profondeur : une PR qui touche autre chose que missions.json
+      # (validateur, cartes, workflows) ne rapporte aucun point, et le job ne
+      # doit pas échouer pour autant.
+      - name: Vérifier que seul missions.json a été modifié
+        id: fichiers
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          gh pr view "$PR_NUMERO" --json files --jq '.files[].path' \
+            > "$RUNNER_TEMP/fichiers.txt" 2>&1 || true
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          chemin = pathlib.Path(os.environ["RUNNER_TEMP"], "fichiers.txt")
+
+          try:
+              lignes = [
+                  ligne.strip()
+                  for ligne in chemin.read_text(encoding="utf-8").splitlines()
+                  if ligne.strip()
+              ]
+          except OSError:
+              lignes = []
+
+          if not lignes:
+              print(
+                  "::warning::Impossible de lister les fichiers de la PR #%s : "
+                  "aucun point attribué." % os.environ["PR_NUMERO"]
+              )
+              sys.exit(0)
+
+          interdits = [fichier for fichier in lignes if fichier != "missions.json"]
+          if interdits:
+              print(
+                  "::warning::La PR #%s modifie d'autres fichiers que missions.json : "
+                  "aucun point attribué." % os.environ["PR_NUMERO"]
+              )
+              for fichier in interdits:
+                  print("  - " + fichier)
+              sys.exit(0)
+
+          pathlib.Path(os.environ["RUNNER_TEMP"], "fichiers-ok").write_text(
+              "ok\n", encoding="utf-8"
+          )
+          PY
+          if [ -f "$RUNNER_TEMP/fichiers-ok" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # Un check absent (fork non approuvé) ou rouge ne doit pas faire échouer
       # le job : on l'annonce clairement et on n'attribue aucun point.
@@ -89,22 +145,35 @@ jobs:
           fi
 
       - name: Mettre à jour leaderboard.json
-        if: steps.verif.outputs.valide == 'true'
+        if: steps.fichiers.outputs.ok == 'true' && steps.verif.outputs.valide == 'true'
         env:
           AUTEUR: ${{ github.event.pull_request.user.login }}
           PR_NUMERO: ${{ github.event.pull_request.number }}
         run: python3 update_leaderboard.py --login "$AUTEUR" --pr "$PR_NUMERO" --points 3
 
       - name: Publier le classement
-        if: steps.verif.outputs.valide == 'true'
+        if: steps.fichiers.outputs.ok == 'true' && steps.verif.outputs.valide == 'true'
+        env:
+          BRANCHE: ${{ github.event.pull_request.base.ref }}
+          PR_NUMERO: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git diff --quiet -- leaderboard.json; then
             echo "Classement inchangé (PR déjà comptée)."
-          else
-            git add leaderboard.json
-            git commit -m "Met à jour le classement (PR #${{ github.event.pull_request.number }})"
-            git push origin "HEAD:${{ github.event.pull_request.base.ref }}"
+            exit 0
           fi
+          git add leaderboard.json
+          git commit -m "Met à jour le classement (PR #$PR_NUMERO)"
+          # Une autre fusion peut arriver entre la récupération et la poussée :
+          # on rejoue alors notre commit sur la nouvelle branche de base.
+          for tentative in 1 2 3; do
+            if git push origin "HEAD:$BRANCHE"; then
+              exit 0
+            fi
+            echo "Poussée refusée (tentative $tentative), intégration de $BRANCHE…"
+            git pull --rebase origin "$BRANCHE"
+          done
+          echo "::error::Impossible de publier le classement après 3 tentatives."
+          exit 1

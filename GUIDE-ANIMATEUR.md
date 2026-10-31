@@ -53,5 +53,6 @@ Sur la branche `main` :
 | Check rouge « TODO » | PR ouverte sans modification | Normal au début de l'exercice |
 | Check rouge « mission supprimée » | Conflit résolu en effaçant les missions des autres | Fusionner `main` et garder toutes les missions |
 | Classement inchangé | Le bot ne peut pas pousser sur `main` | Autoriser `github-actions[bot]` (bypass du ruleset) |
+| 0 point alors que le check est vert | La PR touchait un autre fichier que `missions.json` | Normal : seul `missions.json` rapporte des points |
 | Aucun conflit | PR fusionnées une par une | Repartir d'un état commun et ouvrir toutes les PR d'abord |
 | Participants sans PR | Fork créé avant le dépôt de base | Leur faire re-forker, ou approuver leurs runs |

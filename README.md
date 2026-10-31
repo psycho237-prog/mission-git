@@ -195,6 +195,7 @@ Chaque PR fusionnée qui a passé le check **Mission check** rapporte **3 points
 - Une PR n'est comptée **qu'une seule fois** : son numéro est enregistré dans `prs`, donc rejouer le workflow ne rajoute rien.
 - Le classement est **trié par points décroissants** ; à égalité, les logins sont rangés par ordre alphabétique.
 - Une PR fusionnée sans check vert — ou sans check du tout, par exemple depuis un fork sans approbation — rapporte **0 point** : le workflow affiche un avertissement, se termine au vert et ne modifie rien.
+- Même chose pour une PR qui modifie **autre chose que `missions.json`** (validateur, cartes, workflows) : elle ne rapporte aucun point.
 
 Format du fichier :
 
@@ -252,6 +253,7 @@ mission-git/
 ├── README.md
 ├── README.en.md
 ├── GUIDE-ANIMATEUR.md
+├── .gitignore
 ├── missions.json
 ├── cartes.json
 ├── check_missions.py
