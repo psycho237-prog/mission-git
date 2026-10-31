@@ -1,11 +1,6 @@
 {
   "missions": [
     {
-      "id": "demo",
-      "title": "Mission de démonstration",
-      "difficulty": 1
-    },
-    {
       "id": "avalanche-psycho237-prog",
       "title": "Dégager une route bloquée par une avalanche",
       "difficulty": 2
