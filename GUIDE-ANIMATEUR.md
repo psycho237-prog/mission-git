@@ -28,20 +28,35 @@ git status                    # doit être propre
 
 Configuration retenue sur ce dépôt :
 
-- [x] *Require status checks to pass before merging* → **Vérifier les missions**
 - [x] *Do not allow force pushes*
 - [x] *Do not allow deletions*
-- [ ] *Require a pull request before merging* — **volontairement décoché**
+- [ ] *Require a pull request before merging*
+- [ ] *Require status checks to pass before merging*
 
-Pourquoi pas de PR obligatoire : le workflow **Classement** pousse un commit sur `main` avec le `GITHUB_TOKEN`. Sur un dépôt **personnel**, l'intégration GitHub Actions ne peut pas être ajoutée aux acteurs autorisés à contourner (*bypass*) — l'API répond « Actor GitHub Actions integration must be part of the ruleset source or owner organization ». Activer « Require a pull request » bloquerait donc le bot et figerait `leaderboard.json`.
+Les deux dernières cases sont **volontairement décochées**, et ce n'est pas un oubli : le workflow **Classement** pousse un commit sur `main` avec le `GITHUB_TOKEN`, et sur un dépôt **personnel** le bot ne peut pas être autorisé à contourner la protection.
 
-Conséquence à connaître : sans règle « Require a pull request », `.github/CODEOWNERS` reste **indicatif** (il ne bloque rien). Ce qui protège réellement :
+Test réalisé sur ce dépôt :
 
-- les participants n'ont pas de droit d'écriture (ils passent par un fork) ;
-- le check exécute le validateur de la branche de base, donc le réécrire dans une PR ne sert à rien ;
-- le classement refuse les points à toute PR qui touche autre chose que `missions.json`.
+| Configuration | Poussée du bot sur `main` |
+| --- | --- |
+| Check obligatoire activé | **refusée** — `GH006: Protected branch update failed` / `Required status check "Vérifier les missions" is expected` |
+| Check obligatoire retiré | **acceptée** |
 
-Pour une protection complète (PR obligatoire + revue Code Owners), il faut soit un dépôt d'**organisation** (l'app GitHub Actions devient un acteur de contournement valide), soit donner au bot un jeton personnel (`PAT`) et l'autoriser à pousser — mais ce jeton serait alors un secret à gérer.
+L'API refuse aussi les autres portes de sortie sur un dépôt personnel :
+
+- acteur de contournement « GitHub Actions » dans un ruleset → *« Actor GitHub Actions integration must be part of the ruleset source or owner organization »* ;
+- restrictions de poussée (`restrictions`) → *« Only organization repositories can have users and team restrictions »*.
+
+### Conséquences pratiques
+
+- GitHub **ne bloque pas** la fusion d'une PR rouge : c'est à l'animateur de ne fusionner que les PR dont le check est vert.
+- `.github/CODEOWNERS` reste **indicatif** : il sert de repère en revue, il ne bloque rien sans règle « Require a pull request ».
+- ce qui protège réellement le jeu : les participants n'ont pas de droit d'écriture (fork obligatoire), le check exécute le validateur de la branche de base, et le classement refuse les points à toute PR qui touche autre chose que `missions.json`.
+
+### Pour aller plus loin (facultatif)
+
+- **Dépôt d'organisation** : l'app GitHub Actions devient un acteur de contournement valide, donc PR obligatoire + check obligatoire + revue Code Owners sont possibles.
+- **Jeton personnel** : donner au workflow un `PAT` d'administrateur (secret `CLASSEMENT_TOKEN`) à la place de `secrets.GITHUB_TOKEN`. Le bot contourne alors la protection, mais le secret est à créer et à renouveler.
 
 À éviter :
 
@@ -62,7 +77,7 @@ Pour une protection complète (PR obligatoire + revue Code Owners), il faut soit
 | Le check n'apparaît jamais | Run de fork en attente d'approbation | Approuver dans **Actions** |
 | Check rouge « TODO » | PR ouverte sans modification | Normal au début de l'exercice |
 | Check rouge « mission supprimée » | Conflit résolu en effaçant les missions des autres | Fusionner `main` et garder toutes les missions |
-| Classement inchangé et workflow en erreur | Le bot ne peut pas pousser sur `main` | Vérifier qu'aucune règle « Require a pull request » n'est active sur `main` |
+| Workflow Classement en erreur `GH006: Protected branch update failed` | Un check obligatoire ou une PR obligatoire est actif sur `main` | Décocher la règle : le bot ne peut pas la contourner sur un dépôt personnel |
 | 0 point alors que le check est vert | La PR touchait un autre fichier que `missions.json` | Normal : seul `missions.json` rapporte des points |
 | Aucun conflit | PR fusionnées une par une | Repartir d'un état commun et ouvrir toutes les PR d'abord |
 | Participants sans PR | Fork créé avant le dépôt de base | Leur faire re-forker, ou approuver leurs runs |
