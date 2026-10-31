@@ -45,7 +45,7 @@ Because everyone replaces the same `TODO` block, Git eventually raises a **confl
 
 8. **Check** that the PR has no conflict left and that the workflow is **green**.
 
-> Golden rule: only edit `missions.json`. Never touch `check_missions.py`, `cartes.json`, `update_leaderboard.py` or the workflows — that would bypass the validation.
+> Golden rule: only edit `missions.json`. Never touch `check_missions.py`, `cartes.json`, `update_leaderboard.py` or the workflows — the validator that runs comes from the base branch, and a PR touching those files is rejected in review.
 
 ## Your challenge card
 
@@ -217,10 +217,10 @@ File format:
 
 | Workflow | Trigger | Permissions | Code executed |
 | --- | --- | --- | --- |
-| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the PR code (`check_missions.py`) |
+| **Mission check** (validation) | PR `opened`, `synchronize`, `reopened` | `contents: read` | the base branch validator, applied to the PR's `missions.json` |
 | **Classement** | `pull_request_target`, PR closed **and merged** | `contents: write` | the base branch only (`update_leaderboard.py`) |
 
-The validation workflow runs the PR code, so it has **read access only**. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
+The validation workflow only runs the validator and cards from the base branch, so it has **read access only**, and rewriting `check_missions.py` in a PR changes nothing about the verdict. The leaderboard workflow holds write access, but it **never** fetches the PR code: `actions/checkout` explicitly targets the base branch, the author and PR number come from the event payload, and the script executed is the one from the base branch. No PR code runs with a write token.
 
 > **Branch protection caveat:** the leaderboard workflow pushes a commit to `main`. If you enable a rule that forbids direct pushes, allow the `github-actions[bot]` bot (or the workflow) to push, otherwise the leaderboard stays stuck.
 
@@ -230,7 +230,7 @@ The game works with forks, but GitHub can complicate validation:
 
 - depending on the repository settings, a workflow on a PR from a fork may require **manual approval** before starting;
 - without a workflow run there is no card displayed and no green check, hence **0 points** on the leaderboard;
-- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork.
+- the validation workflow uses the workflow file from the PR (`pull_request` event), so the base repository must already contain the workflow before people fork; the validator that actually runs, however, comes from the base branch.
 
 Simplest and safest workshop option: participants can always run `python3 check_missions.py --auteur <login>` locally to learn their card and check their file, and the facilitator approves runs in the **Actions** tab. Also check the fork workflow approval setting under *Settings → Actions → General*.
 
@@ -258,6 +258,7 @@ mission-git/
 ├── update_leaderboard.py
 ├── test_parcours.py
 └── .github/
+    ├── CODEOWNERS
     └── workflows/
         ├── mission-check.yml
         └── leaderboard.yml
@@ -314,5 +315,6 @@ The assignment is `sum of the login letter codes, modulo 4`. Over many logins th
 ## Game integrity
 
 - Explicitly ask participants **not to modify** `check_missions.py`, `cartes.json`, `update_leaderboard.py` or `.github/workflows/`.
-- For real protection, enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR that bypasses the validator then cannot be merged without review.
+- Also enable **branch protection** on `main` requiring the `Vérifier les missions` check before merging: a PR without a check stays blocked.
+- `.github/CODEOWNERS` makes the facilitator the owner of `check_missions.py`, `cartes.json`, `update_leaderboard.py` and `.github/`. Enable branch protection with **"Require a review from Code Owners"**: a PR touching those files then needs the facilitator's approval, and other participants cannot merge it alone. Replace the login in that file with the facilitator's.
 - The validation workflow runs with `contents: read` only: it cannot write anything to the repository.

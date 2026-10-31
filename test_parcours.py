@@ -7,6 +7,8 @@ Vérifie, sans réseau et sans GitHub :
 - la carte de chaque participant : défaut détecté, puis verte après correction ;
 - le conflit Git quand deux branches remplacent le même bloc `TODO` ;
 - le refus d'une PR qui supprime les missions déjà fusionnées (`--base`) ;
+- le refus d'une PR qui remplace `check_missions.py` : le validateur exécuté
+  est celui de la branche de base, appliqué au fichier de la PR ;
 - le classement : 3 points par PR, une PR comptée une seule fois, tri stable.
 
 Usage :
@@ -168,8 +170,46 @@ def tester_suppression(depot, base):
     git(depot, "branch", "-q", "-D", "mission/triche")
 
 
+def tester_falsification(depot, dossier):
+    print("\n5. Une PR ne peut pas remplacer le validateur")
+    git(depot, "switch", "-q", "-c", "mission/mallory")
+    Path(depot, "check_missions.py").write_text(
+        'print("Bravo ! Les missions sont valides.")\nraise SystemExit(0)\n',
+        encoding="utf-8",
+    )
+    ecrire_missions(depot, [DEMO])
+    git(depot, "commit", "-q", "-am", "Remplace le validateur")
+
+    code, _ = verifier(depot, "--auteur", "mallory")
+    attendre(code == 0, "le validateur réécrit par la PR se déclare vert")
+
+    validateur = dossier / "validateur-base"
+    validateur.mkdir()
+    for nom in ("check_missions.py", "cartes.json", "missions.json"):
+        contenu = git(depot, "show", "main:{}".format(nom)).stdout
+        (validateur / nom).write_text(contenu, encoding="utf-8")
+
+    resultat = executer(
+        dossier,
+        sys.executable,
+        str(validateur / "check_missions.py"),
+        "--auteur",
+        "mallory",
+        "--missions",
+        str(Path(depot, "missions.json")),
+        "--base",
+        str(validateur / "missions.json"),
+        succes=False,
+    )
+    sortie = resultat.stdout + resultat.stderr
+    attendre(resultat.returncode == 1, "le validateur de la branche de base refuse la PR")
+    attendre("au moins 2 missions" in sortie, "le refus est explicite")
+
+    git(depot, "switch", "-q", "main")
+
+
 def tester_classement(depot):
-    print("\n5. Classement automatique")
+    print("\n6. Classement automatique")
     for login, numero in (("alice", 12), ("bob", 13), ("carol", 14)):
         executer(
             depot,
@@ -222,6 +262,7 @@ def main():
         )
         base = tester_conflit(depot, dossier)
         tester_suppression(depot, base)
+        tester_falsification(depot, dossier)
         tester_classement(depot)
     except AssertionError as erreur:
         print("\nÉCHEC : {}".format(erreur), file=sys.stderr)

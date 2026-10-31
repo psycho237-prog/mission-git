@@ -15,16 +15,27 @@ jobs:
       - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Récupérer missions.json de la branche de base
+      # Le validateur, les cartes et les missions de référence viennent de la
+      # branche de base : une PR qui réécrit check_missions.py n'a aucun effet.
+      - name: Récupérer le validateur de la branche de base
         env:
           BASE: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
           git fetch --depth=1 origin "$BASE"
+          mkdir -p "$RUNNER_TEMP/validateur"
+          git show FETCH_HEAD:check_missions.py > "$RUNNER_TEMP/validateur/check_missions.py" \
+            || { echo "::error::La branche de base ne contient pas check_missions.py."; exit 1; }
+          git show FETCH_HEAD:cartes.json > "$RUNNER_TEMP/validateur/cartes.json" \
+            || { echo "::error::La branche de base ne contient pas cartes.json."; exit 1; }
           git show FETCH_HEAD:missions.json > "$RUNNER_TEMP/missions-base.json" \
             || echo '{"missions": []}' > "$RUNNER_TEMP/missions-base.json"
 
-      - name: Valider missions.json et la carte de défi
+      - name: Valider missions.json avec le validateur de la branche de base
         env:
           AUTEUR: ${{ github.event.pull_request.user.login }}
-        run: python3 check_missions.py --auteur "$AUTEUR" --base "$RUNNER_TEMP/missions-base.json"
+        run: |
+          python3 "$RUNNER_TEMP/validateur/check_missions.py" \
+            --auteur "$AUTEUR" \
+            --missions missions.json \
+            --base "$RUNNER_TEMP/missions-base.json"

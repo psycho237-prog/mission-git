@@ -333,7 +333,7 @@ def main(argv=None):
         "--missions",
         type=Path,
         default=FICHIER_MISSIONS,
-        help="chemin de missions.json (utilisé pour les tests)",
+        help="chemin du missions.json à vérifier",
     )
     analyseur.add_argument(
         "--base",
