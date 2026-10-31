@@ -6,9 +6,9 @@
       "difficulty": 1
     },
     {
-      "id": "",
-      "title": "Rétablir la radio de secours",
-      "difficulty": 1
+      "id": "demo",
+      "title": "Dégager une route bloquée par une avalanche",
+      "difficulty": 2
     }
   ]
 }
